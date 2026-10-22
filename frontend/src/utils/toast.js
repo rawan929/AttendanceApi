@@ -1,0 +1,1 @@
+export function toast(m, e) { const d = document.createElement('div'); d.className = 't' + (e ? ' e' : ''); d.textContent = m; document.getElementById('toasts').append(d); setTimeout(() => d.remove(), 3200) }

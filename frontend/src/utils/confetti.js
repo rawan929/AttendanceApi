@@ -1,0 +1,1 @@
+export function confetti() { for (let i = 0; i < 40; i++) { const c = document.createElement('div'); c.className = 'cf'; c.textContent = ['🎉', '✨', '🎊'][i % 3]; c.style.left = Math.random() * 100 + 'vw'; c.style.animationDelay = Math.random() * .8 + 's'; document.body.append(c); setTimeout(() => c.remove(), 3500) } }

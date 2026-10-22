@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AttendanceApi.Controllers;
 
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Doctor")]
 [Route("api/[controller]")]
 public class DoctorsController : ControllerBase
 {

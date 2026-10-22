@@ -1,0 +1,1 @@
+<template><h1>Welcome back</h1><div class="card grad row sp" v-reveal><div><b>Data Structures</b><div style="color:var(--mu)">Ready to take attendance?</div></div><router-link class="btn" to="/doctor/live" style="text-decoration:none">Open live session</router-link></div></template>

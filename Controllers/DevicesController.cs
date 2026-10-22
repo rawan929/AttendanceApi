@@ -10,7 +10,7 @@ namespace AttendanceApi.Controllers;
 
 // إدارة الأجهزة (FR-08)
 [ApiController]
-[Authorize(Roles = "Admin")]
+[Authorize(Roles = "Admin,Doctor")]
 [Route("api/[controller]")]
 public class DevicesController : ControllerBase
 {
