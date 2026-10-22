@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>تجربة العرض اللحظي</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 12px; }
+    input { padding: 6px; margin: 4px 0; width: 100%; box-sizing: border-box; }
+    button { padding: 8px 16px; margin-top: 6px; }
+    .counts { font-size: 1.2rem; margin: 16px 0; }
+    ul { padding-inline-start: 20px; }
+    li.new { background: #e6ffe6; }
+    li.removed { background: #ffe6e6; }
+    #status { color: #555; }
+  </style>
+</head>
+<body>
+  <h2>تجربة العرض اللحظي للدكتور (FR-31, FR-32)</h2>
+  <p>الصقي الـ token بتاع الدكتور (من <code>/api/auth/login</code>) ورقم الجلسة، واضغطي اتصال. بعدها مرري كارت من الجهاز وراقبي الصفحة.</p>
+  <input id="token" placeholder="Doctor JWT token">
+  <input id="sid" type="number" placeholder="Session id">
+  <button id="go">اتصال</button>
+  <p id="status"></p>
+
+  <div class="counts">
+    الحاضرين: <b id="present">0</b> &nbsp;|&nbsp; لسه ماحضروش: <b id="notyet">0</b>
+  </div>
+
+  <h3>الحاضرين</h3>
+  <ul id="presentList"></ul>
+  <h3>لسه ماحضروش</h3>
+  <ul id="notYetList"></ul>
+  <h3>سجل الأحداث</h3>
+  <ul id="log"></ul>
+
+  <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
+  <script>
+    const $ = id => document.getElementById(id);
+    let conn, sessionId, token;
+
+    const fmt = iso => new Date(iso).toLocaleTimeString();   // UTC من السيرفر، والمتصفح بيعرضه بالتوقيت المحلي (BR-08)
+
+    function li(text, cls) {
+      const el = document.createElement('li');
+      el.textContent = text;            // textContent عشان أي اسم مايتنفذش كـ HTML
+      if (cls) el.className = cls;
+      return el;
+    }
+
+    function setCounts(p, n) {
+      $('present').textContent = p;
+      $('notyet').textContent = n;
+    }
+
+    async function loadSnapshot() {
+      const r = await fetch(`/api/sessions/${sessionId}/live`, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) { $('status').textContent = 'فشل تحميل الجلسة: ' + r.status; return; }
+      const d = await r.json();
+      setCounts(d.presentCount, d.notYetCount);
+      $('presentList').replaceChildren(...d.present.map(p =>
+        li(`${p.code} - ${p.name} (${p.method}) ${fmt(p.recordedAt)}${p.recordedBy ? ' - ' + p.recordedBy : ''}`)));
+      $('notYetList').replaceChildren(...d.notYet.map(s => li(`${s.code} - ${s.name}`)));
+    }
+
+    $('go').onclick = async () => {
+      token = $('token').value.trim();
+      sessionId = Number($('sid').value);
+      if (conn) await conn.stop();
+
+      conn = new signalR.HubConnectionBuilder()
+        .withUrl('/hubs/attendance', { accessTokenFactory: () => token })
+        .withAutomaticReconnect()
+        .build();
+
+      conn.on('attendanceRecorded', async e => {
+        $('log').prepend(li(`تسجيل: ${e.studentCode} - ${e.studentName} (${e.method}) ${fmt(e.recordedAt)}`, 'new'));
+        await loadSnapshot();
+      });
+      conn.on('attendanceCancelled', async e => {
+        $('log').prepend(li(`إلغاء: ${e.studentCode} - ${e.studentName}`, 'removed'));
+        await loadSnapshot();
+      });
+      conn.on('sessionClosed', () => {
+        $('log').prepend(li('الجلسة اتقفلت'));
+        $('status').textContent = 'الجلسة مقفولة';
+      });
+      conn.onreconnected(async () => { await conn.invoke('JoinSession', sessionId); await loadSnapshot(); });
+
+      try {
+        await conn.start();
+        await conn.invoke('JoinSession', sessionId);
+        $('status').textContent = 'متصل ✔';
+        await loadSnapshot();
+      } catch (err) {
+        $('status').textContent = 'فشل الاتصال: ' + err;
+      }
+    };
+  </script>
+</body>
+</html>
